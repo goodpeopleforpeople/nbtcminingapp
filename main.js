@@ -1,22 +1,28 @@
-// main.js
-const MINING_CHALLENGE_ADDRESS = "0x604799aDB2d80B75FE1F9C1FC817D866f883dD0c"; // Ganti dengan alamat SC Mining Testnet Anda
-const NBTC_TOKEN_ADDRESS = "0x31F50910E0B4513310742c7FEE960416237Df617"; // Ganti dengan alamat SC NBTC Testnet Anda
+// main.js - DApp Frontend Logic for NBTC PoW Mining
+
+// --- Konfigurasi Kontrak dan Jaringan ---
+// PASTIKAN ALAMAT INI BENAR
+const MINING_CHALLENGE_ADDRESS = "0x604799aDB2d80B75FE1F9C1FC817D866f883dD0c";
 const TARGET_CHAIN_ID = 97; // BSC Testnet Chain ID
 
-let provider, signer, miningContract, nbtcContract, worker;
+let provider, signer, miningContract, worker;
 let currentAddress = null;
-let currentChallenge = {};
+let currentChallenge = {}; // Menyimpan difficulty, challengeID, reward, dan lastBlockTimestamp
 const logElement = document.getElementById('log');
 
-// ABI (Application Binary Interface) yang disederhanakan untuk kontrak MiningChallenge
-// Anda harus mendapatkan ABI lengkap dari Remix atau BscScan setelah verifikasi.
+// --- ABI yang Diperbarui ---
 const MINING_ABI = [
-    "function getMiningInfo() view returns (uint256, uint256, uint256, uint256, bool)",
+    // Fungsi Utama Mining
     "function mineBlock(uint256 _nonce) external",
-    // Tambahkan view function lainnya yang Anda butuhkan
+    // Fungsi View untuk Status
+    "function getMiningInfo() view returns (uint256, uint256, uint256, uint256, bool)",
+    // Fungsi View Baru: Wajib Ditambahkan di Kontrak Solidity
+    "function getLastBlockTimestamp() view returns (uint256)", 
 ];
 
+// ----------------------
 // --- FUNGSI UTAMA ---
+// ----------------------
 
 async function connectWallet() {
     if (!window.ethereum) {
@@ -35,6 +41,12 @@ async function connectWallet() {
         if (chainId !== TARGET_CHAIN_ID) {
             logMessage('error', `Harap ganti ke BSC Testnet (Chain ID: ${TARGET_CHAIN_ID})`);
             document.getElementById('network').textContent = `Salah (${chainId})`;
+            // Meminta Metamask untuk switch ke jaringan yang benar (opsional, tapi disarankan)
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: ethers.utils.hexValue(TARGET_CHAIN_ID) }],
+            });
+            // Setelah switch, koneksi harus diulang atau Metamask akan me-reload
             return;
         }
         
@@ -43,7 +55,6 @@ async function connectWallet() {
         
         // Inisialisasi Kontrak
         miningContract = new ethers.Contract(MINING_CHALLENGE_ADDRESS, MINING_ABI, signer);
-        // nbtcContract = new ethers.Contract(NBTC_TOKEN_ADDRESS, NBTC_ABI, signer); // Tambahkan jika perlu interaksi langsung
 
         document.getElementById('start-mining-button').disabled = false;
         logMessage('success', 'Dompet terhubung & Kontrak siap.');
@@ -59,12 +70,16 @@ async function updateMiningStatus() {
     if (!miningContract) return;
 
     try {
-        // Panggil getMiningInfo() untuk mendapatkan semua data sekaligus
+        // Panggil getMiningInfo() untuk status umum
         const [difficulty, challengeID, reward, timeUntilNextHalving, canMine] = await miningContract.getMiningInfo();
+        
+        // Panggil getLastBlockTimestamp() untuk data hashing KRITIS
+        const lastBlockTimestamp = await miningContract.getLastBlockTimestamp();
 
         currentChallenge.difficulty = difficulty.toNumber();
         currentChallenge.challengeID = challengeID.toString();
         currentChallenge.reward = ethers.utils.formatUnits(reward, 8); // Format 8 desimal
+        currentChallenge.lastBlockTimestamp = lastBlockTimestamp.toString(); // Penting untuk hashing worker
 
         document.getElementById('difficulty').textContent = currentChallenge.difficulty;
         document.getElementById('reward').textContent = currentChallenge.reward;
@@ -72,8 +87,11 @@ async function updateMiningStatus() {
         logMessage('info', `Tantangan Baru: ID ${currentChallenge.challengeID}, D: ${currentChallenge.difficulty}, R: ${currentChallenge.reward} NBTC.`);
         
         if (!canMine) {
-             // Opsional: Tampilkan countdown cooldown
-             logMessage('info', `Cooldown aktif. Coba lagi dalam ${currentChallenge.cooldown} detik.`);
+             // Tampilkan countdown cooldown (bisa ditambahkan logika di sini)
+             logMessage('info', `Cooldown aktif. Coba lagi sebentar.`);
+             document.getElementById('miner-status').textContent = 'Cooldown Aktif';
+        } else {
+             document.getElementById('miner-status').textContent = 'Siap Memulai';
         }
 
     } catch (error) {
@@ -89,35 +107,22 @@ function startMining() {
         worker.onerror = (e) => logMessage('error', `Worker Error: ${e.message}`);
     }
 
-    if (!currentAddress || !currentChallenge.challengeID) {
+    if (!currentAddress || !currentChallenge.challengeID || !currentChallenge.lastBlockTimestamp) {
         logMessage('error', 'Gagal memulai mining: Data tantangan belum siap.');
         return;
     }
     
-    // Dapatkan data yang diperlukan untuk hashing (harus sama dengan SC)
-    // Ini membutuhkan fungsi view di SC untuk mengembalikan data hash yang sudah di-pack
-    // Untuk sederhana, kita akan PANGGIL SC DARI MAIN THREAD UNTUK MENDAPATKAN DATA TANTANGAN
-    // Anda mungkin perlu menambahkan fungsi di SC seperti getChallengeDataForHashing()
-    
-    // **ASUMSI SEMENTARA:** Kita akan hardcode data tantangan, atau dapatkan dari API.
-    // Paling baik: Tambahkan fungsi view di SC yang mengembalikan bytes32 tantangan.
-    // Misalnya: getChallengeDataForHashing()
-    
-    // Jika data tantangan sudah berhasil didapatkan:
     document.getElementById('miner-status').textContent = 'Mining (Mencari Nonce...)';
     
-    // Simulasikan pengiriman data (Anda harus menyesuaikan ini)
-    const simulatedChallengeData = "0x" + ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-            ['uint256', 'address', 'uint256', 'uint256'], // ChallengeID, MinerAddress, Timestamp, ChainID
-            [currentChallenge.challengeID, currentAddress, 'timestamp_dummy', TARGET_CHAIN_ID]
-        )
-    );
-    
+    // Kirim SEMUA komponen data mentah ke worker untuk meniru abi.encodePacked
     worker.postMessage({
-        challengeData: simulatedChallengeData,
+        challengeID: currentChallenge.challengeID,
+        minerAddress: currentAddress,
+        lastBlockTimestamp: currentChallenge.lastBlockTimestamp, 
+        chainId: TARGET_CHAIN_ID,
         currentDifficulty: currentChallenge.difficulty
     });
+
     logMessage('info', 'Web Worker berjalan...');
 }
 
@@ -128,36 +133,53 @@ async function handleWorkerMessage(e) {
         document.getElementById('miner-status').textContent = 'Solusi ditemukan! Mengirim transaksi...';
         logMessage('success', `Nonce ditemukan: ${nonce}. Hash: ${hash.substring(0, 10)}...`);
         
-        // Hentikan worker agar tidak menemukan solusi yang tidak relevan lagi
+        // Hentikan worker
         worker.terminate(); 
         worker = null;
         
-        // Kirim transaksi ke smart contract
+        // Kirim transaksi mineBlock ke smart contract
         try {
             const tx = await miningContract.mineBlock(nonce);
             logMessage('info', `Transaksi terkirim: ${tx.hash}`);
             await tx.wait(); // Tunggu konfirmasi blok
             logMessage('success', 'BLOK DITAMBANG! Hadiah diklaim. Memuat tantangan baru...');
 
-            // Setelah sukses, update status dan restart worker
+            // Setelah sukses, update status dan RESTART mining
             await updateMiningStatus();
             startMining(); 
 
         } catch (error) {
-            logMessage('error', `Transaksi GAGAL: ${error.message.substring(0, 150)}...`);
-            document.getElementById('miner-status').textContent = 'Gagal. Restart Mining.';
-            startMining(); // Coba mining lagi dengan tantangan baru
+            // Tangkap error Metamask (misalnya, gas tidak cukup, atau nonce salah)
+            let errorMessage = error.message || "Transaksi gagal.";
+            if (errorMessage.includes("cooldown")) {
+                errorMessage = "Mining cooldown in effect. Coba sebentar lagi.";
+            } else if (errorMessage.includes("invalid nonce")) {
+                errorMessage = "Nonce sudah kadaluarsa (Block lain lebih cepat). Restarting...";
+            }
+            
+            logMessage('error', `Transaksi GAGAL: ${errorMessage.substring(0, 150)}`);
+            document.getElementById('miner-status').textContent = 'Gagal. Restarting...';
+            
+            // Perbarui status sebelum memulai lagi
+            await updateMiningStatus(); 
+            startMining();
         }
     }
 }
 
+// ----------------------------
 // --- FUNGIONALITAS LAINNYA ---
+// ----------------------------
 
 function logMessage(type, message) {
     const p = document.createElement('p');
     p.className = type;
     p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     logElement.prepend(p);
+    // Batasi log agar tidak terlalu panjang
+    while (logElement.children.length > 50) {
+        logElement.removeChild(logElement.lastChild);
+    }
 }
 
 function requestFaucet() {
@@ -165,10 +187,9 @@ function requestFaucet() {
         logMessage('error', 'Harap hubungkan dompet terlebih dahulu.');
         return;
     }
-    logMessage('info', `Permintaan BNB Testnet untuk ${currentAddress} dikirim.`);
-    // Anda harus mengarahkan pengguna ke platform (Discord/Telegram) Anda 
-    // atau menggunakan API backend ringan untuk mentransfer BNB Testnet secara otomatis.
-    // Untuk saat ini, informasikan pengguna untuk menghubungi Anda secara manual.
+    logMessage('info', `Akses Faucet Testnet: Kunjungi situs resmi Faucet BNB Testnet.`);
+    // Opsi: Anda bisa mengarahkan pengguna ke tautan Faucet
+    window.open("https://testnet.bnbchain.org/faucet-48", "_blank");
 }
 
 
@@ -178,5 +199,4 @@ document.getElementById('connect-button').addEventListener('click', connectWalle
 document.getElementById('start-mining-button').addEventListener('click', startMining);
 document.getElementById('faucet-button').addEventListener('click', requestFaucet);
 
-// Mulai update status setelah halaman dimuat (untuk menampilkan data awal)
-// Note: Panggil updateMiningStatus() hanya setelah Metamask terhubung.
+// Note: Tidak memanggil updateMiningStatus() di luar, karena membutuhkan Metamask.
