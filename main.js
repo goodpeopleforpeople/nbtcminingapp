@@ -1,6 +1,6 @@
 // main.js
-const MINING_CHALLENGE_ADDRESS = "ALAMAT_SC_MINING_ANDA"; // Ganti dengan alamat SC Mining Testnet Anda
-const NBTC_TOKEN_ADDRESS = "ALAMAT_NBTC_ANDA"; // Ganti dengan alamat SC NBTC Testnet Anda
+const MINING_CHALLENGE_ADDRESS = "0x604799aDB2d80B75FE1F9C1FC817D866f883dD0c"; // Ganti dengan alamat SC Mining Testnet Anda
+const NBTC_TOKEN_ADDRESS = "0x31F50910E0B4513310742c7FEE960416237Df617"; // Ganti dengan alamat SC NBTC Testnet Anda
 const TARGET_CHAIN_ID = 97; // BSC Testnet Chain ID
 
 let provider, signer, miningContract, nbtcContract, worker;
