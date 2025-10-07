@@ -4,10 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NANOBITCOIN Mining DApp</title>
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
-        #log { border: 1px solid #ccc; padding: 10px; min-height: 100px; overflow-y: scroll; margin-top: 20px; }
+        body { 
+            font-family: sans-serif; 
+            max-width: 600px; 
+            margin: 40px auto; 
+            background-color: #f4f4f4; /* Tambahkan sedikit warna latar belakang */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+        #log { 
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            min-height: 100px; 
+            max-height: 200px; /* Batasi tinggi log */
+            overflow-y: scroll; 
+            margin-top: 20px; 
+            background-color: #fff;
+        }
+        button { 
+            padding: 10px 15px; 
+            margin-right: 10px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 5px; 
+            transition: background-color 0.3s;
+        }
+        #connect-button { background-color: #007bff; color: white; }
+        #connect-button:hover { background-color: #0056b3; }
+        #start-mining-button { background-color: #28a745; color: white; }
+        #start-mining-button:hover:not(:disabled) { background-color: #1e7e34; }
+        #faucet-button { background-color: #ffc107; color: #333; }
+        #faucet-button:hover { background-color: #e0a800; }
+
         .success { color: green; font-weight: bold; }
         .error { color: red; }
     </style>
@@ -29,6 +60,8 @@
     
     <div id="log">Log Aktivitas:</div>
 
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    
     <script src="main.js"></script>
 </body>
 </html>
