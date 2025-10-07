@@ -1,8 +1,6 @@
 // Konfigurasi
-const CONTRACT_ADDRESS = "0x604799aDB2d80B75FE1F9C1FC817D866f883dD0c"; // MiningChallenge
-const NBTC_ADDRESS = "0x31F50910E0B4513310742c7FEE960416237Df617"; // NBTC Token
+const CONTRACT_ADDRESS = "0x604799aDB2d80B75FE1F9C1FC817D866f883dD0c";
 const ABI = [
-    // MiningChallenge ABI
     "function mineBlock(uint256 _nonce) external",
     "function getMiningInfo() public view returns (uint256 difficulty, uint256 challengeID, uint256 currentReward, uint256 timeUntilNextHalving, bool canMine)",
     "function verifySolution(address miner, uint256 nonce) public view returns (bool isValid, bytes32 hash)",
@@ -22,14 +20,20 @@ let contract;
 let minerWorker;
 let isMining = false;
 
-// DOM Elements
+// DOM Elements - FIXED IDs sesuai HTML
 const networkStatus = document.getElementById('networkStatus');
 const walletStatus = document.getElementById('walletStatus');
-const miningInfo = document.getElementById('miningInfo');
-const minerStatus = document.getElementById('minerStatus');
 const activityLog = document.getElementById('activityLog');
 const connectBtn = document.getElementById('connectBtn');
 const mineBtn = document.getElementById('mineBtn');
+const faucetBtn = document.getElementById('faucetBtn');
+
+// Element untuk mining info - FIXED
+const difficultyElement = document.getElementById('difficulty');
+const challengeIDElement = document.getElementById('challengeID');
+const rewardElement = document.getElementById('reward');
+const halvingDaysElement = document.getElementById('halvingDays');
+const minerStatusElement = document.getElementById('minerStatus');
 
 // Initialize
 window.addEventListener('load', async () => {
@@ -91,8 +95,8 @@ async function connectWallet() {
         contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
         
         // Update UI
-        walletStatus.textContent = `Dompet: ${address.substring(0, 6)}...${address.substring(38)}`;
-        walletStatus.className = 'status connected';
+        document.getElementById('address').textContent = `${address.substring(0, 6)}...${address.substring(38)}`;
+        walletStatus.className = 'status-box connected';
         connectBtn.textContent = 'Terhubung';
         connectBtn.disabled = true;
         mineBtn.disabled = false;
@@ -109,12 +113,19 @@ async function connectWallet() {
 function disconnectWallet() {
     signer = null;
     contract = null;
-    walletStatus.textContent = 'Dompet: Belum terhubung';
-    walletStatus.className = 'status disconnected';
+    document.getElementById('address').textContent = 'Belum terhubung';
+    walletStatus.className = 'status-box disconnected';
     connectBtn.textContent = 'Hubungkan Metamask';
     connectBtn.disabled = false;
     mineBtn.disabled = true;
-    miningInfo.innerHTML = 'Kesulitan (Noi Byte): N/A<br>Hadiah Saat Ini: N/A NBTC<br>Status Miner: Siap Memulai';
+    
+    // Reset mining info
+    difficultyElement.textContent = 'N/A';
+    challengeIDElement.textContent = 'N/A';
+    rewardElement.textContent = 'N/A';
+    halvingDaysElement.textContent = 'N/A';
+    minerStatusElement.textContent = 'Siap Memulai';
+    
     logActivity('🔌 Dompet terputus');
 }
 
@@ -130,18 +141,17 @@ async function updateNetworkInfo() {
         else if (chainId === 97) networkName = 'BNB Testnet';
         else if (chainId === 1) networkName = 'Ethereum Mainnet';
         else if (chainId === 5) networkName = 'Goerli Testnet';
-        else if (chainId === 11155111) networkName = 'Sepolia Testnet';
         
-        networkStatus.textContent = `Jaringan: ${networkName} (${chainId})`;
-        networkStatus.className = chainId === 97 ? 'status connected' : 'status disconnected';
+        document.getElementById('network').textContent = `${networkName} (${chainId})`;
+        networkStatus.className = chainId === 97 ? 'status-box connected' : 'status-box disconnected';
         
         if (chainId !== 97) {
             logActivity('⚠️ Harus menggunakan BNB Testnet (97). Silakan ganti network di Metamask.');
         }
         
     } catch (error) {
-        networkStatus.textContent = 'Jaringan: Error';
-        networkStatus.className = 'status disconnected';
+        document.getElementById('network').textContent = 'Error';
+        networkStatus.className = 'status-box disconnected';
     }
 }
 
@@ -156,13 +166,14 @@ async function updateMiningInfo() {
         const challengeID = miningData.challengeID.toString();
         const timeUntilHalving = Math.floor(miningData.timeUntilNextHalving / 86400); // Convert to days
         
-        miningInfo.innerHTML = `
-            Kesulitan (Noi Byte): ${difficulty}<br>
-            Hadiah Saat Ini: ${reward} NBTC<br>
-            Challenge ID: ${challengeID}<br>
-            Halving dalam: ${timeUntilHalving} hari<br>
-            Status Miner: <span id="minerStatus">${canMine ? 'Siap Mining' : 'Cooldown'}</span>
-        `;
+        // Update elements - FIXED
+        difficultyElement.textContent = difficulty;
+        challengeIDElement.textContent = challengeID;
+        rewardElement.textContent = reward;
+        halvingDaysElement.textContent = timeUntilHalving;
+        minerStatusElement.textContent = canMine ? 'Siap Mining' : 'Cooldown';
+        
+        logActivity(`📊 Mining info updated: Difficulty ${difficulty}, Reward ${reward} NBTC`);
         
     } catch (error) {
         logActivity('❌ Error update mining info: ' + error.message);
@@ -170,12 +181,20 @@ async function updateMiningInfo() {
     }
 }
 
-function startMining() {
+// Event listeners untuk buttons
+connectBtn.addEventListener('click', connectWallet);
+mineBtn.addEventListener('click', toggleMining);
+faucetBtn.addEventListener('click', requestTestnetBNB);
+
+function toggleMining() {
     if (isMining) {
         stopMining();
-        return;
+    } else {
+        startMining();
     }
-    
+}
+
+function startMining() {
     if (!contract || !signer) {
         logActivity('❌ Harap hubungkan dompet terlebih dahulu');
         return;
@@ -191,13 +210,19 @@ function startMining() {
     
     isMining = true;
     mineBtn.textContent = 'Berhenti Mining';
-    minerStatus.textContent = 'Mining...';
+    mineBtn.classList.add('mining');
+    minerStatusElement.textContent = 'Mining...';
     
     // Start Web Worker untuk mining
     minerWorker = new Worker('worker.js');
     
     minerWorker.onmessage = async function(event) {
-        const { nonce, hash, found } = event.data;
+        const { nonce, hash, found, error } = event.data;
+        
+        if (error) {
+            logActivity('❌ Worker error: ' + error);
+            return;
+        }
         
         if (found) {
             logActivity(`🎉 Nonce ditemukan: ${nonce}`);
@@ -205,7 +230,9 @@ function startMining() {
             
             try {
                 // Verifikasi dulu di on-chain
-                const verification = await contract.verifySolution(await signer.getAddress(), nonce);
+                const address = await signer.getAddress();
+                const verification = await contract.verifySolution(address, nonce);
+                
                 if (verification.isValid) {
                     logActivity('✅ Nonce valid! Mengirim transaksi...');
                     
@@ -227,8 +254,8 @@ function startMining() {
                 console.error('Mining error:', error);
             }
         } else {
-            // Log progress setiap 1000 nonce
-            if (nonce % 1000 === 0) {
+            // Log progress setiap 5000 nonce
+            if (nonce % 5000 === 0) {
                 logActivity(`⛏️ Mencoba nonce: ${nonce} - Hash: ${hash.substring(0, 16)}...`);
             }
         }
@@ -248,7 +275,8 @@ function stopMining() {
     
     isMining = false;
     mineBtn.textContent = 'Mulai Mining';
-    minerStatus.textContent = 'Dihentikan';
+    mineBtn.classList.remove('mining');
+    minerStatusElement.textContent = 'Dihentikan';
     logActivity('⏹️ Mining dihentikan');
 }
 
@@ -279,8 +307,7 @@ async function getMiningDataForWorker() {
 }
 
 function requestTestnetBNB() {
-    const address = signer ? signer.getAddress() : null;
-    if (!address) {
+    if (!signer) {
         logActivity('❌ Harap hubungkan dompet terlebih dahulu');
         return;
     }
