@@ -1,67 +1,213 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NANOBITCOIN Mining DApp</title>
     <style>
         body { 
-            font-family: sans-serif; 
-            max-width: 600px; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            max-width: 700px; 
             margin: 40px auto; 
-            background-color: #f4f4f4; /* Tambahkan sedikit warna latar belakang */
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            color: #333;
         }
-        h1 { color: #333; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        h1 { 
+            color: #2c3e50; 
+            text-align: center;
+            border-bottom: 3px solid #3498db; 
+            padding-bottom: 15px; 
+            margin-bottom: 25px;
+        }
+        
+        .status-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #3498db;
+        }
+        
+        .status-box.connected {
+            border-left-color: #27ae60;
+            background: #d5f4e6;
+        }
+        
+        .status-box.disconnected {
+            border-left-color: #e74c3c;
+            background: #fadbd8;
+        }
+        
+        .status-box.mining {
+            border-left-color: #f39c12;
+            background: #fdebd0;
+        }
+        
         #log { 
             border: 1px solid #ddd; 
-            padding: 10px; 
-            min-height: 100px; 
-            max-height: 200px; /* Batasi tinggi log */
-            overflow-y: scroll; 
+            padding: 15px; 
+            min-height: 120px; 
+            max-height: 250px;
+            overflow-y: auto; 
             margin-top: 20px; 
-            background-color: #fff;
+            background-color: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            border-radius: 8px;
+            font-size: 14px;
         }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        
         button { 
-            padding: 10px 15px; 
-            margin-right: 10px; 
+            padding: 12px 20px; 
             cursor: pointer; 
             border: none; 
-            border-radius: 5px; 
-            transition: background-color 0.3s;
+            border-radius: 6px; 
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-size: 14px;
+            flex: 1;
+            min-width: 140px;
         }
-        #connect-button { background-color: #007bff; color: white; }
-        #connect-button:hover { background-color: #0056b3; }
-        #start-mining-button { background-color: #28a745; color: white; }
-        #start-mining-button:hover:not(:disabled) { background-color: #1e7e34; }
-        #faucet-button { background-color: #ffc107; color: #333; }
-        #faucet-button:hover { background-color: #e0a800; }
-
-        .success { color: green; font-weight: bold; }
-        .error { color: red; }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #connectBtn { 
+            background: linear-gradient(45deg, #3498db, #2980b9); 
+            color: white; 
+        }
+        
+        #connectBtn:hover:not(:disabled) { 
+            background: linear-gradient(45deg, #2980b9, #1f618d); 
+        }
+        
+        #mineBtn { 
+            background: linear-gradient(45deg, #27ae60, #229954); 
+            color: white; 
+        }
+        
+        #mineBtn:hover:not(:disabled) { 
+            background: linear-gradient(45deg, #229954, #1e8449); 
+        }
+        
+        #mineBtn.mining { 
+            background: linear-gradient(45deg, #e74c3c, #c0392b); 
+        }
+        
+        #faucetBtn { 
+            background: linear-gradient(45deg, #f39c12, #e67e22); 
+            color: white; 
+        }
+        
+        #faucetBtn:hover { 
+            background: linear-gradient(45deg, #e67e22, #d35400); 
+        }
+        
+        .success { color: #27ae60; font-weight: bold; }
+        .error { color: #e74c3c; font-weight: bold; }
+        .warning { color: #f39c12; font-weight: bold; }
+        .info { color: #3498db; font-weight: bold; }
+        
+        .mining-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .stat-item {
+            background: #ecf0f1;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
-    <h1>NBTC PoW Miner (Testnet)</h1>
+    <div class="container">
+        <h1>⛏️ NBTC PoW Miner (Testnet)</h1>
 
-    <div id="status">
-        <p>Jaringan: <span id="network">Memuat...</span></p>
-        <p>Dompet: <span id="address">Belum terhubung</span></p>
-        <p>Kesulitan (Nol Byte): <span id="difficulty">N/A</span></p>
-        <p>Hadiah Saat Ini: <span id="reward">N/A</span> NBTC</p>
-        <p>Status Miner: <span id="miner-status">Siap Memulai</span></p>
+        <div class="status-box" id="networkStatus">
+            <strong>Jaringan:</strong> <span id="network">Memuat...</span>
+        </div>
+        
+        <div class="status-box disconnected" id="walletStatus">
+            <strong>Dompet:</strong> <span id="address">Belum terhubung</span>
+        </div>
+
+        <div class="status-box" id="miningInfo">
+            <div class="mining-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="difficulty">N/A</div>
+                    <div class="stat-label">Kesulitan</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="reward">N/A</div>
+                    <div class="stat-label">Hadiah NBTC</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="challengeID">N/A</div>
+                    <div class="stat-label">Challenge ID</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="halvingDays">N/A</div>
+                    <div class="stat-label">Halving (hari)</div>
+                </div>
+            </div>
+            <div style="margin-top: 10px;">
+                <strong>Status Miner:</strong> <span id="minerStatus">Siap Memulai</span>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="connectBtn">Hubungkan Metamask</button>
+            <button id="mineBtn" disabled>Mulai Mining</button>
+            <button id="faucetBtn">Minta BNB Testnet</button>
+        </div>
+        
+        <h3>📋 Log Aktivitas:</h3>
+        <div id="activityLog">[System] Aplikasi dimulai...</div>
     </div>
 
-    <button id="connect-button">Hubungkan Metamask</button>
-    <button id="start-mining-button" disabled>Mulai Mining</button>
-    <button id="faucet-button">Minta BNB Testnet</button>
-    
-    <div id="log">Log Aktivitas:</div>
-
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
-    
     <script src="main.js"></script>
 </body>
 </html>
