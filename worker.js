@@ -1,60 +1,69 @@
 // worker.js
 
-// Impor library keccak256 (Penting: harus menggunakan library yang kompatibel)
-// Kita gunakan CDN 'js-sha3' yang lebih ringkas dari ethers.js untuk worker.
+// Impor library keccak256
 importScripts('https://cdn.jsdelivr.net/npm/js-sha3@0.9.2/src/js-sha3.min.js');
+
+// Fungsi helper untuk padding ke 64 bit (32 byte)
+function padHex(hex, length = 64) {
+    return hex.length < length ? '0'.repeat(length - hex.length) + hex : hex;
+}
+
+// Fungsi helper (hex string ke ArrayBuffer/Bytes)
+function hexToBytes(hex) {
+    // Hapus 0x jika ada
+    if (hex.startsWith('0x')) {
+        hex = hex.substring(2);
+    }
+    for (var bytes = [], c = 0; c < hex.length; c += 2)
+        bytes.push(parseInt(hex.substr(c, 2), 16));
+    return bytes;
+}
 
 // Fungsi utama yang dipanggil untuk memulai pencarian nonce
 self.onmessage = function(e) {
-    const { challengeData, currentDifficulty } = e.data;
-    const challengeDataHex = challengeData.slice(2); // Hapus '0x'
-    
-    // Target hash: string yang berisi sejumlah nol (misal: "00", "0000")
-    const targetPrefix = '00'.repeat(currentDifficulty); 
+    // Data yang Diharapkan dari main.js (Semua komponen mentah)
+    const { 
+        challengeID, 
+        minerAddress, 
+        lastBlockTimestamp, 
+        chainId, 
+        currentDifficulty 
+    } = e.data;
 
+    const targetPrefix = '00'.repeat(currentDifficulty);
+    
+    // Siapkan data statis (A, B, C, D) dalam format hex tanpa 0x
+    const idHex = padHex(parseInt(challengeID).toString(16)); // 32-byte padding
+    const minerHex = padHex(minerAddress.slice(2), 40);      // 20-byte address
+    const timestampHex = padHex(parseInt(lastBlockTimestamp).toString(16));
+    const chainIdHex = padHex(parseInt(chainId).toString(16));
+    
     let nonce = 0;
     let hash;
 
-    // Mulai loop hashing (brute force)
+    // Mulai loop hashing
     while (true) {
-        // Gabungkan challengeData dan nonce
-        const nonceHex = nonce.toString(16).padStart(64, '0'); // Nonce 64-bit
-        const dataToHash = challengeDataHex + nonceHex;
+        // Gabungkan data mentah (A+B+C+D+E) untuk meniru abi.encodePacked
+        const nonceHex = padHex(nonce.toString(16));
+        
+        // Gabungkan SEMUA data mentah yang di-pad (meniru abi.encodePacked)
+        const dataToHash = idHex + minerHex + timestampHex + chainIdHex + nonceHex;
 
-        // Hitung Keccak256 (menggunakan sha3.keccak256 dari js-sha3)
+        // Hitung Keccak256 (Hanya SATU KALI HASHING)
         hash = sha3.keccak256(hexToBytes(dataToHash));
         
-        // Cek apakah hash memenuhi target kesulitan
+        // Cek kesulitan
         if (hash.startsWith(targetPrefix)) {
-            // Solusi ditemukan! Kirim kembali ke main thread.
             self.postMessage({ nonce, hash: '0x' + hash });
             break; 
         }
 
         nonce++;
 
-        // Tambahkan cek periodik agar browser tidak crash/hang
+        // Cek periodik
         if (nonce % 100000 === 0) {
-            // Memberikan kesempatan thread utama untuk update UI
-            // dan menerima pesan berhenti/restart
-            if (!checkTermination()) break;
+            // Anda harus mengirim pesan khusus dari main.js untuk menghentikan worker (misalnya, { stop: true })
+            // Karena tidak ada implementasi checkTermination() di sini, kita lewati.
         }
     }
 };
-
-// Fungsi helper (hex string ke ArrayBuffer/Bytes)
-function hexToBytes(hex) {
-    for (var bytes = [], c = 0; c < hex.length; c += 2)
-        bytes.push(parseInt(hex.substr(c, 2), 16));
-    return bytes;
-}
-
-// Logika ini harus disinkronkan dengan _getSolutionHash di SC MiningChallenge.sol
-// Pastikan cara Anda menggabungkan data (abi.encodePacked) sama dengan di sini.
-// Di kontrak: keccak256(abi.encodePacked(challengeID, miner, lastTimestamp, chainId, nonce))
-// Di worker: challengeData sudah mencakup 4 data pertama yang di-pack dan di-hash, lalu digabung dengan nonce.
-// Karena kita tidak bisa mendapatkan pack/hash yang sama di JS, kita harus mengambil data hash tantangan dari SC sebagai 'challengeData'.
-
-// CATATAN PENTING: Untuk kesederhanaan, worker ini mengasumsikan challengeData 
-// dikirim dalam bentuk satu hex string. Di main.js, Anda harus mendapatkan hash 
-// yang dihasilkan dari 4 variabel pertama di SC dan mengirimkannya ke worker.
