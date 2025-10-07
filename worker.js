@@ -1,69 +1,75 @@
-// worker.js
+// Web Worker untuk Proof-of-Work mining
+let isWorking = false;
+let currentNonce = 0;
 
-// Impor library keccak256
-importScripts('https://cdn.jsdelivr.net/npm/js-sha3@0.9.2/src/js-sha3.min.js');
+// Import ethers (untuk hashing)
+importScripts('https://cdn.ethers.io/lib/ethers-5.7.umd.min.js');
 
-// Fungsi helper untuk padding ke 64 bit (32 byte)
-function padHex(hex, length = 64) {
-    return hex.length < length ? '0'.repeat(length - hex.length) + hex : hex;
-}
-
-// Fungsi helper (hex string ke ArrayBuffer/Bytes)
-function hexToBytes(hex) {
-    // Hapus 0x jika ada
-    if (hex.startsWith('0x')) {
-        hex = hex.substring(2);
-    }
-    for (var bytes = [], c = 0; c < hex.length; c += 2)
-        bytes.push(parseInt(hex.substr(c, 2), 16));
-    return bytes;
-}
-
-// Fungsi utama yang dipanggil untuk memulai pencarian nonce
-self.onmessage = function(e) {
-    // Data yang Diharapkan dari main.js (Semua komponen mentah)
-    const { 
-        challengeID, 
-        minerAddress, 
-        lastBlockTimestamp, 
-        chainId, 
-        currentDifficulty 
-    } = e.data;
-
-    const targetPrefix = '00'.repeat(currentDifficulty);
+self.onmessage = function(event) {
+    const { type, address, challengeID, lastBlockTimestamp, difficulty, chainId } = event.data;
     
-    // Siapkan data statis (A, B, C, D) dalam format hex tanpa 0x
-    const idHex = padHex(parseInt(challengeID).toString(16)); // 32-byte padding
-    const minerHex = padHex(minerAddress.slice(2), 40);      // 20-byte address
-    const timestampHex = padHex(parseInt(lastBlockTimestamp).toString(16));
-    const chainIdHex = padHex(parseInt(chainId).toString(16));
-    
-    let nonce = 0;
-    let hash;
-
-    // Mulai loop hashing
-    while (true) {
-        // Gabungkan data mentah (A+B+C+D+E) untuk meniru abi.encodePacked
-        const nonceHex = padHex(nonce.toString(16));
-        
-        // Gabungkan SEMUA data mentah yang di-pad (meniru abi.encodePacked)
-        const dataToHash = idHex + minerHex + timestampHex + chainIdHex + nonceHex;
-
-        // Hitung Keccak256 (Hanya SATU KALI HASHING)
-        hash = sha3.keccak256(hexToBytes(dataToHash));
-        
-        // Cek kesulitan
-        if (hash.startsWith(targetPrefix)) {
-            self.postMessage({ nonce, hash: '0x' + hash });
-            break; 
-        }
-
-        nonce++;
-
-        // Cek periodik
-        if (nonce % 100000 === 0) {
-            // Anda harus mengirim pesan khusus dari main.js untuk menghentikan worker (misalnya, { stop: true })
-            // Karena tidak ada implementasi checkTermination() di sini, kita lewati.
-        }
+    if (type === 'START') {
+        isWorking = true;
+        currentNonce = Math.floor(Math.random() * 1000000); // Start dari random nonce
+        startMining(address, challengeID, lastBlockTimestamp, difficulty, chainId);
+    } else if (type === 'STOP') {
+        isWorking = false;
     }
 };
+
+function startMining(address, challengeID, lastBlockTimestamp, difficulty, chainId) {
+    function mine() {
+        if (!isWorking) return;
+        
+        try {
+            // Encode data sesuai dengan kontrak
+            const challengeData = ethers.utils.solidityKeccak256(
+                ['uint256', 'address', 'uint256'],
+                [challengeID, address, lastBlockTimestamp]
+            );
+            
+            // Hash final dengan nonce dan chainId
+            const solutionHash = ethers.utils.solidityKeccak256(
+                ['bytes32', 'uint256'],
+                [challengeData, currentNonce]
+            );
+            
+            // Cek kesulitan
+            const meetsDifficulty = checkDifficulty(solutionHash, parseInt(difficulty));
+            
+            // Kirim hasil ke main thread
+            self.postMessage({
+                nonce: currentNonce,
+                hash: solutionHash,
+                found: meetsDifficulty
+            });
+            
+            currentNonce++;
+            
+            // Lanjut mining (gunakan setTimeout untuk avoid blocking)
+            setTimeout(mine, 0);
+            
+        } catch (error) {
+            self.postMessage({
+                error: error.message
+            });
+        }
+    }
+    
+    mine();
+}
+
+function checkDifficulty(hash, difficulty) {
+    // Hilangkan '0x' prefix
+    const hashBytes = hash.substring(2);
+    
+    // Cek apakah N byte pertama adalah 0
+    for (let i = 0; i < difficulty; i++) {
+        const byte = hashBytes.substring(i * 2, i * 2 + 2);
+        if (byte !== '00') {
+            return false;
+        }
+    }
+    
+    return true;
+}
