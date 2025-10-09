@@ -5,97 +5,163 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NANOBITCOIN Mining DApp</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            max-width: 700px; 
-            margin: 40px auto; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            color: #333;
+            max-width: 800px; 
+            margin: 0 auto;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
         }
         
         .container {
-            background: white;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
         }
         
         h1 { 
-            color: #2c3e50; 
-            text-align: center;
-            border-bottom: 3px solid #3498db; 
-            padding-bottom: 15px; 
+            color: #f39c12; 
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(243, 156, 18, 0.3);
+        }
+        
+        .subtitle {
+            color: #ecf0f1;
+            font-size: 1.1em;
+            opacity: 0.8;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
             margin-bottom: 25px;
         }
         
         .status-box {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid #3498db;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .status-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
         
         .status-box.connected {
-            border-left-color: #27ae60;
-            background: #d5f4e6;
+            border-left: 4px solid #27ae60;
+            background: rgba(39, 174, 96, 0.1);
         }
         
         .status-box.disconnected {
-            border-left-color: #e74c3c;
-            background: #fadbd8;
+            border-left: 4px solid #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
         }
         
-        .status-box.mining {
-            border-left-color: #f39c12;
-            background: #fdebd0;
+        .status-box.mining-active {
+            border-left: 4px solid #f39c12;
+            background: rgba(243, 156, 18, 0.1);
         }
         
-        #activityLog { 
-            border: 1px solid #ddd; 
-            padding: 15px; 
-            min-height: 120px; 
-            max-height: 250px;
-            overflow-y: auto; 
-            margin-top: 20px; 
-            background-color: #1a1a1a;
-            color: #00ff00;
-            font-family: 'Courier New', monospace;
-            border-radius: 8px;
-            font-size: 14px;
+        .status-label {
+            font-size: 0.9em;
+            color: #bdc3c7;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .status-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #ecf0f1;
+        }
+        
+        .mining-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 25px 0;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #f39c12;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            color: #95a5a6;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
         .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin: 20px 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin: 25px 0;
         }
         
         button { 
-            padding: 12px 20px; 
+            padding: 15px 20px; 
             cursor: pointer; 
             border: none; 
-            border-radius: 6px; 
+            border-radius: 10px; 
             transition: all 0.3s ease;
             font-weight: 600;
             font-size: 14px;
-            flex: 1;
-            min-width: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(-1px);
         }
         
         button:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
+            transform: none !important;
         }
         
         #connectBtn { 
@@ -118,6 +184,13 @@
         
         #mineBtn.mining { 
             background: linear-gradient(45deg, #e74c3c, #c0392b); 
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
         
         #faucetBtn { 
@@ -129,88 +202,632 @@
             background: linear-gradient(45deg, #e67e22, #d35400); 
         }
         
-        .mining-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 15px 0;
+        #claimBtn {
+            background: linear-gradient(45deg, #9b59b6, #8e44ad);
+            color: white;
         }
         
-        .stat-item {
-            background: #ecf0f1;
-            padding: 10px;
-            border-radius: 6px;
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 18px;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: #7f8c8d;
-            text-transform: uppercase;
+        #claimBtn:hover:not(:disabled) {
+            background: linear-gradient(45deg, #8e44ad, #7d3c98);
         }
 
+        .rewards-section {
+            background: rgba(155, 89, 182, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(155, 89, 182, 0.3);
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .rewards-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .rewards-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .rewards-amount {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #9b59b6;
+        }
+        
+        .log-section {
+            margin-top: 25px;
+        }
+        
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        #activityLog { 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            padding: 15px; 
+            min-height: 200px; 
+            max-height: 300px;
+            overflow-y: auto; 
+            background-color: rgba(0, 0, 0, 0.3);
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .log-timestamp {
+            color: #7f8c8d;
+        }
+        
+        .clear-log {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .clear-log:hover {
+            background: rgba(231, 76, 60, 0.3);
+        }
+        
         .loading {
             color: #7f8c8d;
             font-style: italic;
+        }
+        
+        .success { color: #27ae60; }
+        .warning { color: #f39c12; }
+        .error { color: #e74c3c; }
+        .info { color: #3498db; }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: #95a5a6;
+            font-size: 0.9em;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .mining-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .button-group {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .mining-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            body {
+                padding: 10px;
+            }
+        }
+        
+        /* Scrollbar Styling */
+        #activityLog::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #activityLog::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        
+        #activityLog::-webkit-scrollbar-thumb {
+            background: #f39c12;
+            border-radius: 4px;
+        }
+        
+        #activityLog::-webkit-scrollbar-thumb:hover {
+            background: #e67e22;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>⛏️ NBTC PoW Miner (Testnet)</h1>
-
-        <div class="status-box" id="networkStatus">
-            <strong>Jaringan:</strong> <span id="network" class="loading">Memuat...</span>
+        <div class="header">
+            <h1>⛏️ NBTC MINER</h1>
+            <div class="subtitle">Proof-of-Work Mining DApp - BSC Testnet</div>
         </div>
-        
-        <div class="status-box disconnected" id="walletStatus">
-            <strong>Dompet:</strong> <span id="address" class="loading">Belum terhubung</span>
+
+        <div class="status-grid">
+            <div class="status-box" id="networkStatus">
+                <div class="status-label">Jaringan</div>
+                <div class="status-value" id="network" class="loading">Memuat...</div>
+            </div>
+            
+            <div class="status-box disconnected" id="walletStatus">
+                <div class="status-label">Dompet</div>
+                <div class="status-value" id="address" class="loading">Belum terhubung</div>
+            </div>
         </div>
 
         <div class="status-box" id="miningInfoBox">
+            <div class="status-label">Status Mining</div>
+            <div class="status-value" id="minerStatus">Siap Memulai</div>
+            
             <div class="mining-stats">
                 <div class="stat-item">
-                    <div class="stat-value" id="difficulty">N/A</div>
                     <div class="stat-label">KESULITAN</div>
+                    <div class="stat-value" id="difficulty">N/A</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value" id="challengeID">N/A</div>
                     <div class="stat-label">CHALLENGE ID</div>
+                    <div class="stat-value" id="challengeID">N/A</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value" id="reward">N/A</div>
                     <div class="stat-label">HADIAH NBTC</div>
+                    <div class="stat-value" id="reward">N/A</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value" id="halvingDays">N/A</div>
                     <div class="stat-label">HALVING (HARI)</div>
+                    <div class="stat-value" id="halvingDays">N/A</div>
                 </div>
             </div>
-            <div style="margin-top: 10px;">
-                <strong>Status Miner:</strong> <span id="minerStatus">Siap Memulai</span>
+        </div>
+
+        <div class="rewards-section" id="rewardsSection">
+            <div class="rewards-header">
+                <div>
+                    <div class="status-label">PENDING REWARDS</div>
+                    <div class="rewards-amount" id="pendingRewards">0 NBTC</div>
+                </div>
+                <button id="claimBtn">💰 Claim Rewards</button>
+            </div>
+            <div class="status-label" style="margin-top: 10px; font-size: 0.8em;">
+                Minimum claim: 10,000 NBTC
             </div>
         </div>
 
         <div class="button-group">
-            <button id="connectBtn">Hubungkan Metamask</button>
-            <button id="mineBtn" disabled>Mulai Mining</button>
-            <button id="faucetBtn">Minta BNB Testnet</button>
+            <button id="connectBtn">🔗 Hubungkan Wallet</button>
+            <button id="mineBtn" disabled>⛏️ Mulai Mining</button>
+            <button id="faucetBtn">💧 BNB Faucet</button>
         </div>
-        
-        <h3>📋 Log Aktivitas:</h3>
-        <div id="activityLog">[System] Aplikasi dimulai...</div>
+
+        <div class="log-section">
+            <div class="log-header">
+                <div class="status-label">📋 LOG AKTIVITAS</div>
+                <button class="clear-log" onclick="clearLog()">🗑️ Bersihkan</button>
+            </div>
+            <div id="activityLog">
+                <div class="log-entry">
+                    <span class="log-timestamp">[System]</span> <span class="info">Aplikasi NBTC Miner dimulai...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            NBTC Mining DApp v1.0 | BSC Testnet | Halving setiap 4 tahun
+        </div>
     </div>
 
-    <!-- === GUNAKAN CDN INI === -->
+    <!-- Gunakan CDN Ethers.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     
     <!-- Script utama -->
-    <script src="main.js"></script>
+    <script>
+        // Konfigurasi
+        const CONTRACT_ADDRESS = "0x8f6868373aAe040E7F41a34F5Ea4E9Eb812DA334";
+        const ABI = [
+            // Mining functions
+            "function mineBlock(uint256 _nonce) external",
+            "function claimReward() external",
+            "function canClaimReward(address user) external view returns (bool)",
+            "function getPendingReward(address user) external view returns (uint256)",
+            
+            // View functions  
+            "function getMiningInfo() external view returns (uint256 difficulty, uint256 challengeID, uint256 currentReward, uint256 timeUntilNextHalving, bool canMine, uint256 yourPendingRewards, uint256 minClaimAmount)",
+            "function getContractBalance() external view returns (uint256)",
+            "function currentDifficulty() external view returns (uint256)",
+            "function currentChallengeID() external view returns (uint256)",
+            "function lastBlockTimestamp() external view returns (uint256)",
+            "function DEPLOYMENT_TIMESTAMP() external view returns (uint256)",
+            "function lastMineTime(address) external view returns (uint256)",
+            
+            // Events
+            "event BlockMined(address indexed miner, uint256 reward, uint256 challengeID, uint256 difficulty, bytes32 hash)",
+            "event RewardClaimed(address indexed miner, uint256 amount)"
+        ];
+
+        // Global Variables
+        let provider;
+        let signer;
+        let contract;
+        let minerWorker;
+        let isMining = false;
+
+        // DOM Elements
+        const networkStatus = document.getElementById('networkStatus');
+        const walletStatus = document.getElementById('walletStatus');
+        const activityLog = document.getElementById('activityLog');
+        const connectBtn = document.getElementById('connectBtn');
+        const mineBtn = document.getElementById('mineBtn');
+        const faucetBtn = document.getElementById('faucetBtn');
+        const claimBtn = document.getElementById('claimBtn');
+        const rewardsSection = document.getElementById('rewardsSection');
+
+        // Mining info elements
+        const difficultyElement = document.getElementById('difficulty');
+        const challengeIDElement = document.getElementById('challengeID');
+        const rewardElement = document.getElementById('reward');
+        const halvingDaysElement = document.getElementById('halvingDays');
+        const minerStatusElement = document.getElementById('minerStatus');
+        const pendingRewardsElement = document.getElementById('pendingRewards');
+
+        // Initialize
+        window.addEventListener('load', async () => {
+            await initializeApp();
+        });
+
+        async function initializeApp() {
+            try {
+                // Cek apakah Metamask terinstall
+                if (typeof window.ethereum === 'undefined') {
+                    logActivity('❌ Metamask tidak terdeteksi. Silakan install Metamask.', 'error');
+                    return;
+                }
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                
+                // Event listeners untuk Metamask
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts.length === 0) {
+                        disconnectWallet();
+                    } else {
+                        connectWallet();
+                    }
+                });
+
+                window.ethereum.on('chainChanged', (chainId) => {
+                    window.location.reload();
+                });
+
+                // Cek koneksi existing
+                const accounts = await provider.listAccounts();
+                if (accounts.length > 0) {
+                    await connectWallet();
+                }
+
+                await updateNetworkInfo();
+                logActivity('✅ Aplikasi siap! Hubungkan wallet untuk mulai mining.', 'success');
+
+            } catch (error) {
+                logActivity('❌ Error inisialisasi: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        async function connectWallet() {
+            try {
+                logActivity('🔄 Menghubungkan ke wallet...', 'info');
+                
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                signer = provider.getSigner();
+                const address = await signer.getAddress();
+                
+                contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+                
+                // Update UI
+                document.getElementById('address').textContent = `${address.substring(0, 6)}...${address.substring(38)}`;
+                walletStatus.className = 'status-box connected';
+                connectBtn.textContent = '✅ Terhubung';
+                connectBtn.disabled = true;
+                mineBtn.disabled = false;
+                
+                await updateMiningInfo();
+                logActivity(`✅ Berhasil terhubung: ${address}`, 'success');
+                
+            } catch (error) {
+                logActivity('❌ Gagal menghubungkan dompet: ' + error.message, 'error');
+            }
+        }
+
+        function disconnectWallet() {
+            if (isMining) stopMining();
+            
+            signer = null;
+            contract = null;
+            document.getElementById('address').textContent = 'Belum terhubung';
+            walletStatus.className = 'status-box disconnected';
+            connectBtn.textContent = '🔗 Hubungkan Wallet';
+            connectBtn.disabled = false;
+            mineBtn.disabled = true;
+            
+            // Reset mining info
+            difficultyElement.textContent = 'N/A';
+            challengeIDElement.textContent = 'N/A';
+            rewardElement.textContent = 'N/A';
+            halvingDaysElement.textContent = 'N/A';
+            minerStatusElement.textContent = 'Siap Memulai';
+            rewardsSection.classList.remove('active');
+            
+            logActivity('🔌 Dompet terputus', 'warning');
+        }
+
+        async function updateNetworkInfo() {
+            try {
+                if (!provider) return;
+                
+                const network = await provider.getNetwork();
+                const chainId = network.chainId;
+                
+                let networkName = 'Unknown';
+                if (chainId === 56) networkName = 'BSC Mainnet';
+                else if (chainId === 97) networkName = 'BSC Testnet';
+                else if (chainId === 1) networkName = 'Ethereum Mainnet';
+                
+                document.getElementById('network').textContent = `${networkName} (${chainId})`;
+                networkStatus.className = chainId === 97 ? 'status-box connected' : 'status-box disconnected';
+                
+                if (chainId !== 97) {
+                    logActivity('⚠️ Harus menggunakan BSC Testnet (97). Silakan ganti network di Metamask.', 'warning');
+                }
+                
+            } catch (error) {
+                document.getElementById('network').textContent = 'Error';
+                networkStatus.className = 'status-box disconnected';
+            }
+        }
+
+        async function updateMiningInfo() {
+            try {
+                if (!contract) return;
+                
+                const miningData = await contract.getMiningInfo();
+                const difficulty = miningData.difficulty.toString();
+                const reward = ethers.utils.formatUnits(miningData.currentReward, 8);
+                const canMine = miningData.canMine;
+                const challengeID = miningData.challengeID.toString();
+                const timeUntilHalving = Math.floor(miningData.timeUntilNextHalving / 86400);
+                const pendingRewards = ethers.utils.formatUnits(miningData.yourPendingRewards, 8);
+                
+                // Update UI
+                difficultyElement.textContent = difficulty;
+                challengeIDElement.textContent = challengeID;
+                rewardElement.textContent = parseFloat(reward).toLocaleString();
+                halvingDaysElement.textContent = timeUntilHalving.toLocaleString();
+                minerStatusElement.textContent = canMine ? 'Siap Mining' : 'Cooldown';
+                pendingRewardsElement.textContent = parseFloat(pendingRewards).toLocaleString() + ' NBTC';
+                
+                // Show/hide rewards section
+                if (parseFloat(pendingRewards) > 0) {
+                    rewardsSection.classList.add('active');
+                    if (parseFloat(pendingRewards) >= 10000) {
+                        claimBtn.disabled = false;
+                        logActivity(`💰 Bisa claim rewards: ${pendingRewards} NBTC`, 'success');
+                    } else {
+                        claimBtn.disabled = true;
+                    }
+                } else {
+                    rewardsSection.classList.remove('active');
+                }
+                
+            } catch (error) {
+                logActivity('❌ Error update mining info: ' + error.message, 'error');
+                console.error('Update mining error:', error);
+            }
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connectWallet);
+        mineBtn.addEventListener('click', toggleMining);
+        faucetBtn.addEventListener('click', requestTestnetBNB);
+        claimBtn.addEventListener('click', claimRewards);
+
+        function toggleMining() {
+            if (isMining) {
+                stopMining();
+            } else {
+                startMining();
+            }
+        }
+
+        function startMining() {
+            if (!contract || !signer) {
+                logActivity('❌ Harap hubungkan dompet terlebih dahulu', 'error');
+                return;
+            }
+            
+            // Cek network
+            provider.getNetwork().then(network => {
+                if (network.chainId !== 97) {
+                    logActivity('❌ Harus menggunakan BSC Testnet (ChainID: 97)', 'error');
+                    return;
+                }
+            });
+            
+            isMining = true;
+            mineBtn.textContent = '🛑 Berhenti Mining';
+            mineBtn.classList.add('mining');
+            minerStatusElement.textContent = 'Mining...';
+            
+            // Start Web Worker
+            minerWorker = new Worker('worker.js');
+            
+            minerWorker.onmessage = async function(event) {
+                const { nonce, hash, found, error } = event.data;
+                
+                if (error) {
+                    logActivity('❌ Worker error: ' + error, 'error');
+                    return;
+                }
+                
+                if (found) {
+                    logActivity(`🎉 Solution found! Nonce: ${nonce}`, 'success');
+                    logActivity(`🔑 Hash: ${hash.substring(0, 16)}...`, 'info');
+                    
+                    try {
+                        // Submit ke blockchain
+                        const tx = await contract.mineBlock(nonce);
+                        logActivity(`📝 Transaksi dikirim: ${tx.hash}`, 'info');
+                        
+                        const receipt = await tx.wait();
+                        logActivity(`✅ Block mined! Gas used: ${receipt.gasUsed.toString()}`, 'success');
+                        
+                        await updateMiningInfo();
+                        
+                    } catch (error) {
+                        if (error.message.includes('cooldown')) {
+                            logActivity('⏳ Cooldown active, tunggu 30 detik', 'warning');
+                        } else if (error.message.includes('Invalid hash')) {
+                            logActivity('❌ Hash tidak valid, terus mining...', 'error');
+                        } else {
+                            logActivity('❌ Mining error: ' + error.message, 'error');
+                        }
+                    }
+                } else {
+                    // Progress log
+                    if (nonce % 50000 === 0) {
+                        logActivity(`⛏️ Testing nonce: ${nonce.toLocaleString()}...`, 'info');
+                    }
+                }
+            };
+            
+            // Get mining data untuk worker
+            getMiningDataForWorker();
+            logActivity('⛏️ Memulai mining...', 'info');
+        }
+
+        function stopMining() {
+            if (minerWorker) {
+                minerWorker.terminate();
+                minerWorker = null;
+            }
+            
+            isMining = false;
+            mineBtn.textContent = '⛏️ Mulai Mining';
+            mineBtn.classList.remove('mining');
+            minerStatusElement.textContent = 'Dihentikan';
+            logActivity('⏹️ Mining dihentikan', 'warning');
+        }
+
+        async function getMiningDataForWorker() {
+            try {
+                const address = await signer.getAddress();
+                const challengeID = await contract.currentChallengeID();
+                const lastBlockTimestamp = await contract.lastBlockTimestamp();
+                const difficulty = await contract.currentDifficulty();
+                const chainId = (await provider.getNetwork()).chainId;
+                
+                minerWorker.postMessage({
+                    type: 'START',
+                    address: address,
+                    challengeID: challengeID.toString(),
+                    lastBlockTimestamp: lastBlockTimestamp.toString(),
+                    difficulty: difficulty.toString(),
+                    chainId: chainId.toString()
+                });
+                
+                logActivity(`📊 Mining data: Difficulty ${difficulty}, ChallengeID ${challengeID}`, 'info');
+                
+            } catch (error) {
+                logActivity('❌ Error getting mining data: ' + error.message, 'error');
+            }
+        }
+
+        async function claimRewards() {
+            try {
+                if (!contract) return;
+                
+                claimBtn.disabled = true;
+                claimBtn.textContent = 'Claiming...';
+                
+                const tx = await contract.claimReward();
+                logActivity(`📝 Claim transaction: ${tx.hash}`, 'info');
+                
+                const receipt = await tx.wait();
+                logActivity(`✅ Rewards claimed successfully!`, 'success');
+                
+                await updateMiningInfo();
+                
+                claimBtn.textContent = '💰 Claim Rewards';
+                
+            } catch (error) {
+                logActivity('❌ Claim error: ' + error.message, 'error');
+                claimBtn.disabled = false;
+                claimBtn.textContent = '💰 Claim Rewards';
+            }
+        }
+
+        function requestTestnetBNB() {
+            if (!signer) {
+                logActivity('❌ Harap hubungkan dompet terlebih dahulu', 'error');
+                return;
+            }
+            
+            window.open('https://testnet.bnbchain.org/faucet-smart', '_blank');
+            logActivity('🔗 Membuka BSC Testnet Faucet...', 'info');
+        }
+
+        function logActivity(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span> 
+                <span class="${type}">${message}</span>
+            `;
+            activityLog.appendChild(logEntry);
+            activityLog.scrollTop = activityLog.scrollHeight;
+        }
+
+        function clearLog() {
+            activityLog.innerHTML = `
+                <div class="log-entry">
+                    <span class="log-timestamp">[System]</span> 
+                    <span class="info">Log dibersihkan</span>
+                </div>
+            `;
+        }
+
+        // Auto-update mining info setiap 30 detik
+        setInterval(() => {
+            if (contract && signer) {
+                updateMiningInfo();
+            }
+        }, 30000);
+    </script>
 </body>
 </html>
