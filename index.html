@@ -130,7 +130,7 @@
         
         .button-group {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 12px;
             margin: 25px 0;
         }
@@ -193,24 +193,6 @@
             100% { transform: scale(1); }
         }
         
-        #faucetBtn { 
-            background: linear-gradient(45deg, #f39c12, #e67e22); 
-            color: white; 
-        }
-        
-        #faucetBtn:hover { 
-            background: linear-gradient(45deg, #e67e22, #d35400); 
-        }
-        
-        #claimBtn {
-            background: linear-gradient(45deg, #9b59b6, #8e44ad);
-            color: white;
-        }
-        
-        #claimBtn:hover:not(:disabled) {
-            background: linear-gradient(45deg, #8e44ad, #7d3c98);
-        }
-
         .rewards-section {
             background: rgba(155, 89, 182, 0.1);
             padding: 20px;
@@ -232,7 +214,7 @@
         
         .rewards-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
         }
@@ -241,6 +223,23 @@
             font-size: 1.5em;
             font-weight: bold;
             color: #9b59b6;
+        }
+        
+        #claimBtn {
+            background: linear-gradient(45deg, #9b59b6, #8e44ad);
+            color: white;
+            padding: 12px 20px;
+        }
+        
+        #claimBtn:hover:not(:disabled) {
+            background: linear-gradient(45deg, #8e44ad, #7d3c98);
+        }
+
+        .claim-info {
+            font-size: 0.8em;
+            color: #bdc3c7;
+            margin-top: 10px;
+            text-align: center;
         }
         
         .log-section {
@@ -322,6 +321,12 @@
             
             .button-group {
                 grid-template-columns: 1fr;
+            }
+            
+            .rewards-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
             }
             
             .container {
@@ -414,15 +419,14 @@
                 </div>
                 <button id="claimBtn">💰 Claim Rewards</button>
             </div>
-            <div class="status-label" style="margin-top: 10px; font-size: 0.8em;">
-                Minimum claim: 10,000 NBTC
+            <div class="claim-info">
+                Minimum claim: 10,000 NBTC | Gas fee diperlukan
             </div>
         </div>
 
         <div class="button-group">
             <button id="connectBtn">🔗 Hubungkan Wallet</button>
             <button id="mineBtn" disabled>⛏️ Mulai Mining</button>
-            <button id="faucetBtn">💧 BNB Faucet</button>
         </div>
 
         <div class="log-section">
@@ -483,7 +487,6 @@
         const activityLog = document.getElementById('activityLog');
         const connectBtn = document.getElementById('connectBtn');
         const mineBtn = document.getElementById('mineBtn');
-        const faucetBtn = document.getElementById('faucetBtn');
         const claimBtn = document.getElementById('claimBtn');
         const rewardsSection = document.getElementById('rewardsSection');
 
@@ -622,6 +625,7 @@
                 const challengeID = miningData.challengeID.toString();
                 const timeUntilHalving = Math.floor(miningData.timeUntilNextHalving / 86400);
                 const pendingRewards = ethers.utils.formatUnits(miningData.yourPendingRewards, 8);
+                const minClaimAmount = ethers.utils.formatUnits(miningData.minClaimAmount, 8);
                 
                 // Update UI
                 difficultyElement.textContent = difficulty;
@@ -631,14 +635,19 @@
                 minerStatusElement.textContent = canMine ? 'Siap Mining' : 'Cooldown';
                 pendingRewardsElement.textContent = parseFloat(pendingRewards).toLocaleString() + ' NBTC';
                 
-                // Show/hide rewards section
+                // Show/hide rewards section dan update claim button
                 if (parseFloat(pendingRewards) > 0) {
                     rewardsSection.classList.add('active');
-                    if (parseFloat(pendingRewards) >= 10000) {
-                        claimBtn.disabled = false;
-                        logActivity(`💰 Bisa claim rewards: ${pendingRewards} NBTC`, 'success');
+                    
+                    // Cek apakah bisa claim (minimal 10,000 NBTC)
+                    const canClaim = parseFloat(pendingRewards) >= parseFloat(minClaimAmount);
+                    claimBtn.disabled = !canClaim;
+                    
+                    if (canClaim) {
+                        claimBtn.innerHTML = '💰 Claim Rewards';
+                        logActivity(`✅ Bisa claim rewards: ${parseFloat(pendingRewards).toLocaleString()} NBTC`, 'success');
                     } else {
-                        claimBtn.disabled = true;
+                        claimBtn.innerHTML = `⏳ Butuh ${(parseFloat(minClaimAmount) - parseFloat(pendingRewards)).toLocaleString()} NBTC lagi`;
                     }
                 } else {
                     rewardsSection.classList.remove('active');
@@ -653,7 +662,6 @@
         // Event listeners
         connectBtn.addEventListener('click', connectWallet);
         mineBtn.addEventListener('click', toggleMining);
-        faucetBtn.addEventListener('click', requestTestnetBNB);
         claimBtn.addEventListener('click', claimRewards);
 
         function toggleMining() {
@@ -711,8 +719,12 @@
                     } catch (error) {
                         if (error.message.includes('cooldown')) {
                             logActivity('⏳ Cooldown active, tunggu 30 detik', 'warning');
+                            stopMining();
                         } else if (error.message.includes('Invalid hash')) {
                             logActivity('❌ Hash tidak valid, terus mining...', 'error');
+                        } else if (error.message.includes('insufficient funds')) {
+                            logActivity('❌ Gas tidak cukup, butuh BNB untuk gas fee', 'error');
+                            stopMining();
                         } else {
                             logActivity('❌ Mining error: ' + error.message, 'error');
                         }
@@ -771,8 +783,17 @@
             try {
                 if (!contract) return;
                 
+                // Cek dulu apakah benar bisa claim
+                const address = await signer.getAddress();
+                const canClaim = await contract.canClaimReward(address);
+                
+                if (!canClaim) {
+                    logActivity('❌ Belum memenuhi minimum claim amount (10,000 NBTC)', 'error');
+                    return;
+                }
+                
                 claimBtn.disabled = true;
-                claimBtn.textContent = 'Claiming...';
+                claimBtn.innerHTML = '⏳ Claiming...';
                 
                 const tx = await contract.claimReward();
                 logActivity(`📝 Claim transaction: ${tx.hash}`, 'info');
@@ -782,23 +803,14 @@
                 
                 await updateMiningInfo();
                 
-                claimBtn.textContent = '💰 Claim Rewards';
+                claimBtn.innerHTML = '💰 Claim Rewards';
+                claimBtn.disabled = false;
                 
             } catch (error) {
                 logActivity('❌ Claim error: ' + error.message, 'error');
                 claimBtn.disabled = false;
-                claimBtn.textContent = '💰 Claim Rewards';
+                claimBtn.innerHTML = '💰 Claim Rewards';
             }
-        }
-
-        function requestTestnetBNB() {
-            if (!signer) {
-                logActivity('❌ Harap hubungkan dompet terlebih dahulu', 'error');
-                return;
-            }
-            
-            window.open('https://testnet.bnbchain.org/faucet-smart', '_blank');
-            logActivity('🔗 Membuka BSC Testnet Faucet...', 'info');
         }
 
         function logActivity(message, type = 'info') {
