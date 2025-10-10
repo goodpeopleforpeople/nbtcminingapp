@@ -154,8 +154,12 @@
         #mineBtn.mining { 
             background: linear-gradient(45deg, #e74c3c, #c0392b); 
         }
+        
+        #testBtn {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white;
+        }
 
-        /* REWARDS SECTION */
         .rewards-section {
             background: rgba(155, 89, 182, 0.15);
             padding: 15px;
@@ -222,6 +226,21 @@
             margin-top: 8px;
             padding-top: 8px;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .test-section {
+            background: rgba(243, 156, 18, 0.15);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(243, 156, 18, 0.4);
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .test-info {
+            font-size: 0.8em;
+            color: #f39c12;
+            margin-bottom: 10px;
         }
         
         .log-section {
@@ -345,6 +364,12 @@
             </div>
         </div>
 
+        <!-- TEST SECTION -->
+        <div class="test-section">
+            <div class="test-info">🚀 QUICK TEST - Coba nonce yang mungkin work</div>
+            <button id="testBtn">🎯 Test Quick Mining</button>
+        </div>
+
         <!-- REWARDS SECTION -->
         <div class="rewards-section" id="rewardsSection">
             <div class="rewards-header">
@@ -377,7 +402,7 @@
         </div>
 
         <div class="footer">
-            NBTC Mining DApp v2.0 | BSC Testnet | Claim Rewards Feature
+            NBTC Mining DApp v3.0 | BSC Testnet | Optimized Mining
         </div>
     </div>
 
@@ -409,6 +434,7 @@
         const pendingRewardsElement = document.getElementById('pendingRewards');
         const rewardsSection = document.getElementById('rewardsSection');
         const claimBtn = document.getElementById('claimBtn');
+        const testBtn = document.getElementById('testBtn');
 
         // Initialize
         window.addEventListener('load', initializeApp);
@@ -461,6 +487,7 @@
                 connectBtn.textContent = '✅ Connected';
                 connectBtn.disabled = true;
                 mineBtn.disabled = false;
+                testBtn.disabled = false;
                 
                 await updateMiningInfo();
                 logActivity(`✅ Successfully connected: ${address}`, 'success');
@@ -480,6 +507,7 @@
             connectBtn.textContent = '🔗 Connect Wallet';
             connectBtn.disabled = false;
             mineBtn.disabled = true;
+            testBtn.disabled = true;
             rewardsSection.classList.remove('active');
             
             logActivity('🔌 Wallet disconnected', 'warning');
@@ -587,6 +615,7 @@
         connectBtn.addEventListener('click', connectWallet);
         mineBtn.addEventListener('click', toggleMining);
         claimBtn.addEventListener('click', claimRewards);
+        testBtn.addEventListener('click', quickTestMining);
 
         function toggleMining() {
             if (isMining) {
@@ -627,8 +656,8 @@
                 }
                 
                 if (found) {
-                    logActivity(`🎉 Valid solution found! Nonce: ${nonce}`, 'success');
-                    logActivity(`🔑 Hash: ${hash.substring(0, 16)}...`, 'info');
+                    logActivity(`🎉 VALID SOLUTION FOUND! Nonce: ${nonce}`, 'success');
+                    logActivity(`🔑 Hash: ${hash}`, 'info');
                     
                     try {
                         // Submit to blockchain
@@ -646,7 +675,7 @@
                             logActivity('⏳ Cooldown active, please wait 30 seconds', 'warning');
                             stopMining();
                         } else if (error.message.includes('Invalid hash')) {
-                            logActivity('❌ Hash validation failed, continue mining...', 'error');
+                            logActivity('❌ Hash validation failed', 'error');
                         } else if (error.message.includes('insufficient funds')) {
                             logActivity('❌ Insufficient BNB for gas fees', 'error');
                             stopMining();
@@ -664,7 +693,7 @@
             
             // Send mining data to worker
             getMiningDataForWorker();
-            logActivity('⛏️ Mining started... Looking for valid solutions', 'info');
+            logActivity('⛏️ Mining started with MATCHED algorithm...', 'info');
         }
 
         function stopMining() {
@@ -702,6 +731,51 @@
             } catch (error) {
                 logActivity('❌ Failed to get mining parameters: ' + error.message, 'error');
             }
+        }
+
+        // QUICK TEST FUNCTION - Try known nonces
+        async function quickTestMining() {
+            if (!contract || !signer) {
+                logActivity('❌ Please connect wallet first', 'error');
+                return;
+            }
+
+            testBtn.disabled = true;
+            testBtn.textContent = '🎯 Testing...';
+            
+            logActivity('🚀 Starting quick test with known nonces...', 'info');
+            
+            // Try a range of nonces that might work
+            const testNonces = [1, 10, 100, 1000, 10000, 100000, 123456, 654321, 999999];
+            
+            for (const nonce of testNonces) {
+                try {
+                    logActivity(`🔍 Testing nonce: ${nonce}...`, 'info');
+                    const tx = await contract.mineBlock(nonce);
+                    logActivity(`🎉 SUCCESS! Nonce ${nonce} worked! Tx: ${tx.hash}`, 'success');
+                    
+                    const receipt = await tx.wait();
+                    logActivity(`✅ Block mined! Gas: ${receipt.gasUsed.toString()}`, 'success');
+                    
+                    await updateMiningInfo();
+                    break;
+                    
+                } catch (error) {
+                    if (error.message.includes('Invalid hash')) {
+                        // Continue to next nonce
+                        continue;
+                    } else if (error.message.includes('cooldown')) {
+                        logActivity('⏳ Cooldown active', 'warning');
+                        break;
+                    } else {
+                        logActivity(`❌ Nonce ${nonce} failed: ${error.message}`, 'error');
+                    }
+                }
+            }
+            
+            testBtn.disabled = false;
+            testBtn.textContent = '🎯 Test Quick Mining';
+            logActivity('🏁 Quick test completed', 'info');
         }
 
         async function claimRewards() {
