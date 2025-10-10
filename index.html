@@ -154,44 +154,74 @@
         #mineBtn.mining { 
             background: linear-gradient(45deg, #e74c3c, #c0392b); 
         }
-        
+
+        /* REWARDS SECTION */
         .rewards-section {
-            background: rgba(155, 89, 182, 0.1);
+            background: rgba(155, 89, 182, 0.15);
             padding: 15px;
-            border-radius: 8px;
-            border: 1px solid rgba(155, 89, 182, 0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(155, 89, 182, 0.4);
             margin: 15px 0;
             display: none;
         }
         
         .rewards-section.active {
             display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .rewards-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .rewards-info {
+            flex: 1;
         }
         
         .rewards-amount {
-            font-size: 1.3em;
+            font-size: 1.4em;
             font-weight: bold;
             color: #9b59b6;
+            margin-bottom: 5px;
+        }
+        
+        .rewards-label {
+            font-size: 0.8em;
+            color: #bdc3c7;
         }
         
         #claimBtn {
             background: linear-gradient(45deg, #9b59b6, #8e44ad);
             color: white;
-            padding: 8px 15px;
-            font-size: 13px;
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 8px;
+            min-width: 120px;
+        }
+        
+        #claimBtn:hover:not(:disabled) {
+            background: linear-gradient(45deg, #8e44ad, #7d3c98);
+        }
+        
+        #claimBtn:disabled {
+            background: #7f8c8d;
         }
         
         .claim-info {
             font-size: 0.75em;
             color: #bdc3c7;
-            margin-top: 8px;
             text-align: center;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         
         .log-section {
@@ -262,8 +292,12 @@
             
             .rewards-header {
                 flex-direction: column;
-                gap: 10px;
+                gap: 12px;
                 text-align: center;
+            }
+            
+            #claimBtn {
+                width: 100%;
             }
         }
     </style>
@@ -306,21 +340,22 @@
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">HALVING (HARI)</div>
-                    <div class="stat-value" id="halvingDays">1457</div>
+                    <div class="stat-value" id="halvingDays">1459</div>
                 </div>
             </div>
         </div>
 
+        <!-- REWARDS SECTION -->
         <div class="rewards-section" id="rewardsSection">
             <div class="rewards-header">
-                <div>
-                    <div class="status-label">PENDING REWARDS</div>
+                <div class="rewards-info">
                     <div class="rewards-amount" id="pendingRewards">0 NBTC</div>
+                    <div class="rewards-label">PENDING REWARDS</div>
                 </div>
-                <button id="claimBtn">💰 Claim</button>
+                <button id="claimBtn">💰 Claim Rewards</button>
             </div>
             <div class="claim-info">
-                Minimum claim: 10,000 NBTC
+                Minimum claim: 10,000 NBTC | Gas fee required
             </div>
         </div>
 
@@ -342,7 +377,7 @@
         </div>
 
         <div class="footer">
-            NBTC Mining DApp v1.0 | BSC Testnet
+            NBTC Mining DApp v2.0 | BSC Testnet | Claim Rewards Feature
         </div>
     </div>
 
@@ -356,8 +391,7 @@
             "function claimReward() external",
             "function canClaimReward(address user) external view returns (bool)",
             "function getPendingReward(address user) external view returns (uint256)",
-            "function getMiningInfo() external view returns (uint256 difficulty, uint256 challengeID, uint256 currentReward, uint256 timeUntilNextHalving, bool canMine, uint256 yourPendingRewards, uint256 minClaimAmount)",
-            "function getContractBalance() external view returns (uint256)",
+            "function getMiningInfo() external view returns (uint256, uint256, uint256, uint256, bool, uint256, uint256)",
             "function currentDifficulty() external view returns (uint256)",
             "function currentChallengeID() external view returns (uint256)",
             "function lastBlockTimestamp() external view returns (uint256)",
@@ -366,37 +400,47 @@
 
         let provider, signer, contract, minerWorker, isMining = false;
 
+        // DOM elements
+        const difficultyElement = document.getElementById('difficulty');
+        const challengeIDElement = document.getElementById('challengeID');
+        const rewardElement = document.getElementById('reward');
+        const halvingDaysElement = document.getElementById('halvingDays');
+        const minerStatusElement = document.getElementById('minerStatus');
+        const pendingRewardsElement = document.getElementById('pendingRewards');
+        const rewardsSection = document.getElementById('rewardsSection');
+        const claimBtn = document.getElementById('claimBtn');
+
         // Initialize
-        window.addEventListener('load', async () => {
-            await initializeApp();
-        });
+        window.addEventListener('load', initializeApp);
 
         async function initializeApp() {
-            try {
-                if (typeof window.ethereum === 'undefined') {
-                    logActivity('❌ Metamask not detected', 'error');
-                    return;
-                }
+            if (typeof window.ethereum === 'undefined') {
+                return logActivity('❌ Install MetaMask to use this dApp', 'error');
+            }
 
+            try {
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 
+                // Event listeners
                 window.ethereum.on('accountsChanged', (accounts) => {
-                    if (accounts.length === 0) disconnectWallet();
-                    else connectWallet();
+                    accounts.length > 0 ? connectWallet() : disconnectWallet();
                 });
 
                 window.ethereum.on('chainChanged', () => {
                     window.location.reload();
                 });
 
+                // Check if already connected
                 const accounts = await provider.listAccounts();
-                if (accounts.length > 0) await connectWallet();
+                if (accounts.length > 0) {
+                    await connectWallet();
+                }
 
                 await updateNetworkInfo();
-                logActivity('✅ App ready! Connect wallet to start mining.', 'success');
+                logActivity('✅ DApp ready! Connect your wallet to start mining.', 'success');
 
             } catch (error) {
-                logActivity('❌ Init error: ' + error.message, 'error');
+                logActivity('❌ Initialization error: ' + error.message, 'error');
             }
         }
 
@@ -411,6 +455,7 @@
                 
                 contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
                 
+                // Update UI
                 document.getElementById('address').textContent = `${address.substring(0, 6)}...${address.substring(38)}`;
                 walletStatus.className = 'status-box connected';
                 connectBtn.textContent = '✅ Connected';
@@ -418,10 +463,10 @@
                 mineBtn.disabled = false;
                 
                 await updateMiningInfo();
-                logActivity(`✅ Connected: ${address}`, 'success');
+                logActivity(`✅ Successfully connected: ${address}`, 'success');
                 
             } catch (error) {
-                logActivity('❌ Connection failed: ' + error.message, 'error');
+                logActivity('❌ Failed to connect wallet: ' + error.message, 'error');
             }
         }
 
@@ -447,16 +492,21 @@
                 const network = await provider.getNetwork();
                 const chainId = network.chainId;
                 
-                let networkName = 'Unknown';
+                let networkName = 'Unknown Network';
                 if (chainId === 56) networkName = 'BSC Mainnet';
                 else if (chainId === 97) networkName = 'BSC Testnet';
-                else if (chainId === 1) networkName = 'Ethereum';
+                else if (chainId === 1) networkName = 'Ethereum Mainnet';
                 
                 document.getElementById('network').textContent = `${networkName} (${chainId})`;
                 networkStatus.className = chainId === 97 ? 'status-box connected' : 'status-box disconnected';
                 
+                if (chainId !== 97) {
+                    logActivity('⚠️ Please switch to BSC Testnet (ChainID: 97)', 'warning');
+                }
+                
             } catch (error) {
-                document.getElementById('network').textContent = 'Error';
+                document.getElementById('network').textContent = 'Network Error';
+                networkStatus.className = 'status-box disconnected';
             }
         }
 
@@ -464,34 +514,72 @@
             try {
                 if (!contract) return;
                 
+                // Try to get mining info
                 const miningData = await contract.getMiningInfo();
-                const difficulty = miningData.difficulty.toString();
-                const reward = ethers.utils.formatUnits(miningData.currentReward, 8);
-                const canMine = miningData.canMine;
-                const challengeID = miningData.challengeID.toString();
-                const timeUntilHalving = Math.floor(miningData.timeUntilNextHalving / 86400);
-                const pendingRewards = ethers.utils.formatUnits(miningData.yourPendingRewards, 8);
-                const minClaimAmount = ethers.utils.formatUnits(miningData.minClaimAmount, 8);
+                console.log('Mining data:', miningData);
                 
-                // Update UI
-                difficultyElement.textContent = difficulty;
-                challengeIDElement.textContent = challengeID;
-                rewardElement.textContent = parseFloat(reward).toLocaleString();
-                halvingDaysElement.textContent = timeUntilHalving.toLocaleString();
-                minerStatusElement.textContent = canMine ? 'Ready' : 'Cooldown';
+                // Update basic info
+                difficultyElement.textContent = miningData[0].toString();
+                challengeIDElement.textContent = miningData[1].toString();
+                rewardElement.textContent = ethers.utils.formatUnits(miningData[2], 8);
+                halvingDaysElement.textContent = Math.floor(miningData[3] / 86400).toLocaleString();
+                minerStatusElement.textContent = miningData[4] ? 'Ready to Mine' : 'In Cooldown';
+                
+                // Update rewards section
+                const pendingRewards = ethers.utils.formatUnits(miningData[5], 8);
+                const minClaimAmount = ethers.utils.formatUnits(miningData[6], 8);
+                
                 pendingRewardsElement.textContent = parseFloat(pendingRewards).toLocaleString() + ' NBTC';
                 
-                // Rewards section
+                // Show/hide rewards section
                 if (parseFloat(pendingRewards) > 0) {
                     rewardsSection.classList.add('active');
+                    
+                    // Check if can claim
                     const canClaim = parseFloat(pendingRewards) >= parseFloat(minClaimAmount);
                     claimBtn.disabled = !canClaim;
+                    
+                    if (canClaim) {
+                        claimBtn.innerHTML = '💰 Claim Rewards';
+                        claimBtn.title = 'Click to claim your rewards';
+                    } else {
+                        const needed = (parseFloat(minClaimAmount) - parseFloat(pendingRewards)).toLocaleString();
+                        claimBtn.innerHTML = `⏳ Need ${needed} more`;
+                        claimBtn.title = `Minimum ${minClaimAmount} NBTC required to claim`;
+                    }
                 } else {
                     rewardsSection.classList.remove('active');
                 }
                 
             } catch (error) {
-                logActivity('❌ Update error: ' + error.message, 'error');
+                console.error('Mining info error:', error);
+                logActivity('⚠️ Using fallback data (getMiningInfo failed)', 'warning');
+                
+                // Fallback: get individual data
+                try {
+                    const difficulty = await contract.currentDifficulty();
+                    const challengeID = await contract.currentChallengeID();
+                    
+                    difficultyElement.textContent = difficulty.toString();
+                    challengeIDElement.textContent = challengeID.toString();
+                    
+                    // Try to get pending rewards individually
+                    const address = await signer.getAddress();
+                    const pendingRewards = await contract.getPendingReward(address);
+                    const pendingAmount = ethers.utils.formatUnits(pendingRewards, 8);
+                    
+                    if (parseFloat(pendingAmount) > 0) {
+                        pendingRewardsElement.textContent = parseFloat(pendingAmount).toLocaleString() + ' NBTC';
+                        rewardsSection.classList.add('active');
+                        
+                        // Check if can claim
+                        const canClaim = await contract.canClaimReward(address);
+                        claimBtn.disabled = !canClaim;
+                    }
+                    
+                } catch (fallbackError) {
+                    logActivity('❌ Failed to get mining data', 'error');
+                }
             }
         }
 
@@ -501,19 +589,23 @@
         claimBtn.addEventListener('click', claimRewards);
 
         function toggleMining() {
-            if (isMining) stopMining();
-            else startMining();
+            if (isMining) {
+                stopMining();
+            } else {
+                startMining();
+            }
         }
 
         function startMining() {
             if (!contract || !signer) {
-                logActivity('❌ Please connect wallet first', 'error');
+                logActivity('❌ Please connect your wallet first', 'error');
                 return;
             }
             
+            // Check network
             provider.getNetwork().then(network => {
                 if (network.chainId !== 97) {
-                    logActivity('❌ Please switch to BSC Testnet', 'error');
+                    logActivity('❌ Please switch to BSC Testnet (ChainID: 97)', 'error');
                     return;
                 }
             });
@@ -521,43 +613,58 @@
             isMining = true;
             mineBtn.textContent = '🛑 Stop Mining';
             mineBtn.classList.add('mining');
-            minerStatusElement.textContent = 'Mining...';
+            minerStatusElement.textContent = 'Mining Active...';
             
+            // Start Web Worker
             minerWorker = new Worker('worker.js');
             
             minerWorker.onmessage = async function(event) {
                 const { nonce, hash, found, error } = event.data;
                 
                 if (error) {
-                    logActivity('❌ Worker error: ' + error, 'error');
+                    logActivity('❌ Mining worker error: ' + error, 'error');
                     return;
                 }
                 
                 if (found) {
-                    logActivity(`🎉 Solution found! Nonce: ${nonce}`, 'success');
+                    logActivity(`🎉 Valid solution found! Nonce: ${nonce}`, 'success');
+                    logActivity(`🔑 Hash: ${hash.substring(0, 16)}...`, 'info');
                     
                     try {
+                        // Submit to blockchain
                         const tx = await contract.mineBlock(nonce);
-                        logActivity(`📝 Transaction: ${tx.hash}`, 'info');
+                        logActivity(`📝 Transaction submitted: ${tx.hash}`, 'info');
                         
                         const receipt = await tx.wait();
-                        logActivity(`✅ Block mined! Gas: ${receipt.gasUsed.toString()}`, 'success');
+                        logActivity(`✅ Block successfully mined! Gas used: ${receipt.gasUsed.toString()}`, 'success');
                         
+                        // Update mining info
                         await updateMiningInfo();
                         
                     } catch (error) {
                         if (error.message.includes('cooldown')) {
-                            logActivity('⏳ Cooldown active', 'warning');
+                            logActivity('⏳ Cooldown active, please wait 30 seconds', 'warning');
+                            stopMining();
+                        } else if (error.message.includes('Invalid hash')) {
+                            logActivity('❌ Hash validation failed, continue mining...', 'error');
+                        } else if (error.message.includes('insufficient funds')) {
+                            logActivity('❌ Insufficient BNB for gas fees', 'error');
                             stopMining();
                         } else {
-                            logActivity('❌ Mining error: ' + error.message, 'error');
+                            logActivity('❌ Mining transaction failed: ' + error.message, 'error');
                         }
+                    }
+                } else {
+                    // Log progress occasionally
+                    if (nonce % 50000 === 0) {
+                        logActivity(`⛏️ Testing nonce: ${nonce.toLocaleString()}...`, 'info');
                     }
                 }
             };
             
+            // Send mining data to worker
             getMiningDataForWorker();
-            logActivity('⛏️ Starting mining...', 'info');
+            logActivity('⛏️ Mining started... Looking for valid solutions', 'info');
         }
 
         function stopMining() {
@@ -569,7 +676,7 @@
             isMining = false;
             mineBtn.textContent = '⛏️ Start Mining';
             mineBtn.classList.remove('mining');
-            minerStatusElement.textContent = 'Stopped';
+            minerStatusElement.textContent = 'Mining Stopped';
             logActivity('⏹️ Mining stopped', 'warning');
         }
 
@@ -590,39 +697,54 @@
                     chainId: chainId.toString()
                 });
                 
+                logActivity(`📊 Mining parameters - Difficulty: ${difficulty}, Challenge: ${challengeID}`, 'info');
+                
             } catch (error) {
-                logActivity('❌ Mining data error: ' + error.message, 'error');
+                logActivity('❌ Failed to get mining parameters: ' + error.message, 'error');
             }
         }
 
         async function claimRewards() {
             try {
-                if (!contract) return;
-                
-                const address = await signer.getAddress();
-                const canClaim = await contract.canClaimReward(address);
-                
-                if (!canClaim) {
-                    logActivity('❌ Minimum 10,000 NBTC required', 'error');
+                if (!contract) {
+                    logActivity('❌ Please connect wallet first', 'error');
                     return;
                 }
                 
+                const address = await signer.getAddress();
+                
+                // Check if can claim
+                const canClaim = await contract.canClaimReward(address);
+                if (!canClaim) {
+                    logActivity('❌ Minimum 10,000 NBTC required to claim', 'error');
+                    return;
+                }
+                
+                // Get pending amount for confirmation
+                const pendingAmount = await contract.getPendingReward(address);
+                const pendingFormatted = ethers.utils.formatUnits(pendingAmount, 8);
+                
                 claimBtn.disabled = true;
-                claimBtn.textContent = '⏳ Claiming...';
+                claimBtn.innerHTML = '⏳ Claiming...';
+                
+                logActivity(`💰 Claiming ${parseFloat(pendingFormatted).toLocaleString()} NBTC...`, 'info');
                 
                 const tx = await contract.claimReward();
-                logActivity(`📝 Claim transaction: ${tx.hash}`, 'info');
+                logActivity(`📝 Claim transaction sent: ${tx.hash}`, 'info');
                 
                 const receipt = await tx.wait();
-                logActivity(`✅ Rewards claimed!`, 'success');
+                logActivity(`✅ Successfully claimed ${parseFloat(pendingFormatted).toLocaleString()} NBTC!`, 'success');
                 
+                // Update UI
                 await updateMiningInfo();
-                claimBtn.textContent = '💰 Claim';
+                
+                claimBtn.innerHTML = '💰 Claim Rewards';
+                claimBtn.disabled = false;
                 
             } catch (error) {
-                logActivity('❌ Claim error: ' + error.message, 'error');
+                logActivity('❌ Claim failed: ' + error.message, 'error');
                 claimBtn.disabled = false;
-                claimBtn.textContent = '💰 Claim';
+                claimBtn.innerHTML = '💰 Claim Rewards';
             }
         }
 
@@ -639,19 +761,12 @@
             activityLog.innerHTML = '<div class="log-entry"><span class="log-timestamp">[System]</span> <span class="info">Log cleared</span></div>';
         }
 
-        // Auto-update
+        // Auto-update mining info every 30 seconds
         setInterval(() => {
-            if (contract && signer) updateMiningInfo();
+            if (contract && signer) {
+                updateMiningInfo();
+            }
         }, 30000);
-
-        // DOM elements
-        const difficultyElement = document.getElementById('difficulty');
-        const challengeIDElement = document.getElementById('challengeID');
-        const rewardElement = document.getElementById('reward');
-        const halvingDaysElement = document.getElementById('halvingDays');
-        const minerStatusElement = document.getElementById('minerStatus');
-        const pendingRewardsElement = document.getElementById('pendingRewards');
-        const rewardsSection = document.getElementById('rewardsSection');
     </script>
 </body>
 </html>
